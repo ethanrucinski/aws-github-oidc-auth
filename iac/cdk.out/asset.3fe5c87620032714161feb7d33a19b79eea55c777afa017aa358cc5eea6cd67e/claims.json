@@ -1,0 +1,4 @@
+{
+    "sub": "repo:ethanrucinski/*:refs/heads/main",
+    "job_workflow_ref": "ethanrucinski/*/.github/workflows*"
+}
