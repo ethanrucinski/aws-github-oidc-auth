@@ -1,4 +1,4 @@
 {
     "sub": "repo:ethanrucinski/*:refs/heads/main",
-    "job_workflow_ref": "ethanrucinski/test_gha/.github/workflows/*"
+    "job_workflow_ref": "ethanrucinski/test_gha/.github/workflows/test_gha_valid.yaml@*"
 }
