@@ -71,12 +71,15 @@ const handler = (event, _, callback) => {
     const client = new STSClient();
     const command = new AssumeRoleCommand({
         RoleArn: process.env.GITHUB_ACTIONS_ROLE_ARN,
-        RoleSessionName: "GITHUB_ACTIONS",
+        RoleSessionName: `GITHUB_${decoded.actor}`,
     });
     client
         .send(command)
         .then((response) => {
-            callback(null, {Credentials: response.Credentials, AsumedRoleUser: response.AssumedRoleUser});
+            callback(null, {
+                Credentials: response.Credentials,
+                AsumedRoleUser: response.AssumedRoleUser,
+            });
         })
         .catch((err) => {
             console.log(err);
