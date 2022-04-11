@@ -2,17 +2,20 @@ name: Test AWS Auth
 on: [push, workflow_dispatch]
 
 jobs:
-  test-auth:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    steps:
-      - name: AWS Auth
-        uses: ethanrucinski/action-aws-oidc-auth@v1
-        with:
-          initial-role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_NUMBER }}:role/github-oidc-role
-          aws-region: us-east-2
-          lambda-function-name: github-oidc-auth
-      - name: Test Auth
-        run: |
-          aws sts get-caller-identity
+    test-auth:
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write
+        strategy:
+            matrix:
+                region: ["us-east-1", "us-east-2", "us-west-2"]
+        steps:
+            - name: AWS Auth
+              uses: ethanrucinski/action-aws-oidc-auth@v1
+              with:
+                  initial-role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_NUMBER }}:role/github-oidc-role
+                  aws-region: ${{ matrix.region }}
+                  lambda-function-name: github-oidc-auth
+            - name: Test Auth
+              run: |
+                  aws sts get-caller-identity
