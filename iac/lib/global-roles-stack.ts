@@ -53,5 +53,12 @@ export class GlobalRolesStack extends Stack {
                 resources: [this.githubActionsRole.roleArn],
             })
         );
+        this.lambdaFunctionRole.addManagedPolicy(
+            iam.ManagedPolicy.fromManagedPolicyArn(
+                this,
+                "AWSLambdaBasicExecutionRolePolicy",
+                "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+            )
+        );
     }
 }
