@@ -4,6 +4,8 @@ on: [push, workflow_dispatch]
 jobs:
   test-auth:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     steps:
       - name: AWS Auth
         uses: ethanrucinski/action-aws-oidc-auth@v1
