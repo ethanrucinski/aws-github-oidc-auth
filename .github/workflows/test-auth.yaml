@@ -11,7 +11,7 @@ jobs:
                 region: ["us-east-1", "us-east-2", "us-west-2"]
         steps:
             - name: AWS Auth
-              uses: ethanrucinski/action-aws-oidc-auth@v1
+              uses: ethanrucinski/action-aws-oidc-auth@main
               with:
                   initial-role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_NUMBER }}:role/github-oidc-role
                   aws-region: ${{ matrix.region }}

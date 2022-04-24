@@ -1,8 +1,36 @@
 const jwt = require("jsonwebtoken");
-const jwks = require("./jwks.json");
-const claims = require("./claims.json");
+const https = require("https");
 const wcmatch = require("wildcard-match");
 const { STSClient, AssumeRoleCommand } = require("@aws-sdk/client-sts");
+
+const claims = require("./claims.json");
+
+// Download latest JWKS from GitHub token issuer
+const downloadJwks = () => {
+    return new Promise((resolve, reject) => {
+        const req = https.get(
+            "https://token.actions.githubusercontent.com/.well-known/jwks",
+            (res) => {
+                let data = [];
+                res.on("data", (d) => {
+                    data.push(d);
+                });
+                res.on("close", () => {
+                    resolve(Buffer.concat(data));
+                });
+                req.on("error", (error) => {
+                    console.log("Error retrieving GitHub JWKS " + error);
+                    reject(error);
+                });
+            }
+        );
+        req.on("error", (error) => {
+            console.log("Error loading GitHub JWKS " + error);
+            reject(error);
+        });
+        req.end();
+    });
+};
 
 const getHeader = (token) => {
     const base64Part = token.split(".")[0];
@@ -24,9 +52,20 @@ const validateClaims = (claims, decoded) => {
     return !results.includes(false);
 };
 
-const handler = (event, _, callback) => {
+const handler = async (event, _, callback) => {
     // Get token
     const token = event.token;
+
+    // Grab JWKS
+    let jwks;
+    try {
+        const jwksBuffer = await downloadJwks();
+        jwks = JSON.parse(String(jwksBuffer));
+    } catch (err) {
+        console.log(err);
+        callback("GITHUB_JWKS_ERROR");
+        return;
+    }
 
     // Get header
     const header = getHeader(token);
