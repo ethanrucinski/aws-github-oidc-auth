@@ -52,7 +52,7 @@ const validateClaims = (claims, decoded) => {
     return !results.includes(false);
 };
 
-const handler = async (event, _, callback) => {
+exports.handler = async function (event) {
     // Get token
     const token = event.token;
 
@@ -63,8 +63,7 @@ const handler = async (event, _, callback) => {
         jwks = JSON.parse(String(jwksBuffer));
     } catch (err) {
         console.log(err);
-        callback("GITHUB_JWKS_ERROR");
-        return;
+        throw "GITHUB_JWKS_ERROR";
     }
 
     // Get header
@@ -75,8 +74,7 @@ const handler = async (event, _, callback) => {
     if (keys.length != 1) {
         console.log("Couldn't find a matching x5t for token");
         console.log(header.x5t);
-        callback("INVALID_TOKEN");
-        return;
+        throw "INVALID_TOKEN";
     }
 
     // Build cert from key
@@ -95,15 +93,13 @@ const handler = async (event, _, callback) => {
     } catch (err) {
         console.log("Couldn't decode token");
         console.log(err);
-        callback("INVALID_TOKEN");
-        return;
+        throw "INVALID_TOKEN";
     }
 
     // Validate claims
     if (!validateClaims(claims, decoded)) {
         console.log("Couldn't validate claims!");
-        callback("INVALID_TOKEN");
-        return;
+        throw "INVALID_TOKEN";
     }
 
     // Assume role and send back token
@@ -112,18 +108,23 @@ const handler = async (event, _, callback) => {
         RoleArn: process.env.GITHUB_ACTIONS_ROLE_ARN,
         RoleSessionName: `GITHUB_${decoded.actor}`,
     });
-    client
-        .send(command)
-        .then((response) => {
-            callback(null, {
-                Credentials: response.Credentials,
-                AsumedRoleUser: response.AssumedRoleUser,
-            });
-        })
-        .catch((err) => {
-            console.log(err);
-            callback({ error: "Couldn't assume role" });
+    try {
+        const result = await new Promise((resolve, reject) => {
+            client
+                .send(command)
+                .then((response) => {
+                    resolve({
+                        Credentials: response.Credentials,
+                        AsumedRoleUser: response.AssumedRoleUser,
+                    });
+                })
+                .catch((err) => {
+                    console.log(err);
+                    reject("INVALID_ASSUME_ROLE");
+                });
         });
+        return result;
+    } catch (err) {
+        throw err;
+    }
 };
-
-module.exports = { handler: handler };
