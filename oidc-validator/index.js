@@ -1,9 +1,11 @@
 const jwt = require("jsonwebtoken");
 const https = require("https");
-const wcmatch = require("wildcard-match");
 const { STSClient, AssumeRoleCommand } = require("@aws-sdk/client-sts");
 
-const claims = require("./claims.json");
+const claims = {
+    sub: "repo:ethanrucinski/.*:refs/heads/main",
+    job_workflow_ref: "ethanrucinski/.*/.github/workflows/.*.yaml@.*",
+};
 
 // Download latest JWKS from GitHub token issuer
 const downloadJwks = () => {
@@ -32,26 +34,6 @@ const downloadJwks = () => {
     });
 };
 
-const getHeader = (token) => {
-    const base64Part = token.split(".")[0];
-    const part = Buffer.from(base64Part, "base64");
-    return JSON.parse(part.toString());
-};
-
-const validateClaims = (claims, decoded) => {
-    const results = Object.keys(claims).map((claimKey) => {
-        if (!wcmatch(claims[claimKey], false)(decoded[claimKey])) {
-            console.log(
-                "Claim " + claimKey + "failed for " + decoded[claimKey]
-            );
-            return false;
-        } else {
-            return true;
-        }
-    });
-    return !results.includes(false);
-};
-
 exports.handler = async function (event) {
     // Get token
     const token = event.token;
@@ -67,7 +49,8 @@ exports.handler = async function (event) {
     }
 
     // Get header
-    const header = getHeader(token);
+    const headerPart = Buffer.from(token.split(".")[0], "base64");
+    const header = JSON.parse(headerPart.toString());
 
     // Use header to pick x5c
     const keys = jwks.keys.filter((key) => key.x5t == header.x5t);
@@ -77,19 +60,19 @@ exports.handler = async function (event) {
         throw "INVALID_TOKEN";
     }
 
-    // Build cert from key
-    const cert =
-        "-----BEGIN CERTIFICATE-----\n" +
-        keys[0].x5c[0] +
-        "\n-----END CERTIFICATE-----";
-
     // decode token with some validations
     let decoded;
     try {
-        decoded = jwt.verify(token, cert, {
-            issuer: "https://token.actions.githubusercontent.com",
-            audience: "sts.amazonaws.com",
-        });
+        decoded = jwt.verify(
+            token,
+            "-----BEGIN CERTIFICATE-----\n" +
+                keys[0].x5c[0] +
+                "\n-----END CERTIFICATE-----",
+            {
+                issuer: "https://token.actions.githubusercontent.com",
+                audience: "sts.amazonaws.com",
+            }
+        );
     } catch (err) {
         console.log("Couldn't decode token");
         console.log(err);
@@ -97,7 +80,10 @@ exports.handler = async function (event) {
     }
 
     // Validate claims
-    if (!validateClaims(claims, decoded)) {
+    const claimResults = Object.keys(claims).map(
+        (claimKey) => decoded[claimKey].match(claims[claimKey]).length == 1
+    );
+    if (claimResults.includes(false)) {
         console.log("Couldn't validate claims!");
         throw "INVALID_TOKEN";
     }
